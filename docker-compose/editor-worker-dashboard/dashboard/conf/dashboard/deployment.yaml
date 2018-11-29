@@ -425,7 +425,7 @@ wso2.business.rules.manager:
   deployment_configs:
     -
      # <IP>:<HTTPS Port> of the Worker node
-     localhost:9443:
+     wso2sp-worker:9443:
        # UUIDs of rule templates that are needed to be deployed on the node
        - stock-data-analysis
        - stock-exchange-input

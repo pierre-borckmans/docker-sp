@@ -1,0 +1,50 @@
+{
+   "templateGroup": {
+      "uuid": "chat_moderation_rules",
+      "name": "Chat moderation rules",
+      "ruleTemplates": [
+         {
+            "uuid": "T_6003_ConversationsOneHour",
+            "name": "6003_ConversationsOneHour",
+            "description": "Detect users who created more than a given number of conversations in an hour, evaluated every time a conversation is created.",
+            "type": "template",
+            "instanceCount": "one",
+            "script": "",
+            "templates": [
+               {
+                  "type": "siddhiApp",
+                  "content": "@App:name(\"6003_ConversationsOneHour\")\n@App:description(\"Count the number of conversations started by a user in an hour\")\n\n\n@source(\n    type='kafka',\n    topic.list='conversation_created',\n    partition.no.list='0,1,2,3,4,5,6,7,8,9',\n    threading.option='partition.wise',\n    group.id=\"group\",\n    bootstrap.servers='10.24.11.39:9092,10.24.10.155:9092',\n    @map(type='json', \n        @attributes(\n            eventId = '$.data.id',\n            conversationId = '$.data.attributes.id',\n            sellerId = '$.data.attributes.seller_id', \n            buyerId = '$.data.attributes.buyer_id', \n            productId = '$.data.attributes.product_id',\n            createdAt = '$.meta.created_at'\n        )\n    )\n)  \ndefine stream ConversationsCreatedKafkaStream (eventId string, conversationId string, sellerId string, buyerId string, productId string, createdAt long);\n\n@sink(type='log', prefix='Rule 6003')\ndefine stream ViolationStream (user_id string, conversations_created_in_last_hour long);\n\n@info(name='count_last_hour_query')\nfrom ConversationsCreatedKafkaStream#window.externalTime(createdAt, 1 hour)\n[not (productId is null)]\nselect buyerId as user_id, count() as conversations_created_in_last_hour\ngroup by buyerId\ninsert into ConversationCountStream;\n\n@info(name='violation_query')\nfrom ConversationCountStream[conversations_created_in_last_hour>${max_conversations_per_hour}]\nselect *\ninsert into ViolationStream;\n\n\n\n\n"
+               }
+            ],
+            "properties": {
+               "max_conversations_per_hour": {
+                  "fieldName": "Maximum number of conversations created per hour",
+                  "description": "Maximum number of conversations created by a user in an hour",
+                  "defaultValue": "20"
+               }
+            }
+         },
+         {
+            "uuid": "T_6030_Mutes5Days",
+            "name": "6030_Mutes5Days",
+            "description": "Detect users who were muted more than a given number of times in the last 5 days.",
+            "type": "template",
+            "instanceCount": "one",
+            "script": "",
+            "templates": [
+               {
+                  "type": "siddhiApp",
+                  "content": "@App:name(\"6030_Mutes5Days\")\n@App:description(\"Count the number of times a user has been muted in the past 5 days\")\n\n\n@source(\n    type='kafka',\n    topic.list='user_muted',\n    partition.no.list='0',\n    threading.option='single.thread',\n    group.id=\"group\",\n    bootstrap.servers='10.23.170.182:9092,10.23.191.193:9092,10.23.170.142:9092',\n    @map(type='json', \n        @attributes(\n            eventId = '$.data.id',\n            userIdMuted = '$.data.attributes.user_id_muted', \n            productId = '$.data.attributes.product_id',\n            createdAt = '$.meta.created_at'\n        )\n    )\n)  \ndefine stream UserMutedKafkaStream (eventId string, userIdMuted string, createdAt long);\n\n@sink(type='log', prefix='Rule 6030')\ndefine stream ViolationStream (user_id string, mute_count_in_last_5_days long);\n\n@info(name='count_last_five_days_query')\nfrom UserMutedKafkaStream#window.externalTime(createdAt, 5 days)\n[not (userIdMuted is null)]\nselect userIdMuted as user_id, count() as mute_count_in_last_5_days\ngroup by userIdMuted\ninsert into UserMutedCountStream;\n\n@info(name='violation_query')\nfrom UserMutedCountStream[mute_count_in_last_5_days>${max_mute_in_last_5_days}]\nselect *\ninsert into ViolationStream;\n\n\n\n\n"
+               }
+            ],
+            "properties": {
+               "max_mute_in_last_5_days": {
+                  "fieldName": "Maximum number of mutes in the last 5 days",
+                  "description": "Maximum number of times a user can be muted in the last 5 days",
+                  "defaultValue": "10"
+               }
+            }
+         }
+      ]
+   }
+}

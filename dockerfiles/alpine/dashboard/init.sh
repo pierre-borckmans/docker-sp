@@ -23,7 +23,7 @@ artifact_volume=${WORKING_DIRECTORY}/wso2-artifact-volume
 
 # a grace period for mounts to be setup
 echo "Waiting for all volumes to be mounted..."
-sleep 5
+sleep 2
 
 verification_count=0
 verifyMountBeforeStart()
@@ -41,7 +41,7 @@ verifyMountBeforeStart()
   then
     echo "Directory $1 does not exist"
     echo "Waiting for the volume to be mounted..."
-    sleep 5
+    sleep 0.5
 
     echo "Retrying..."
     verifyMountBeforeStart $1
